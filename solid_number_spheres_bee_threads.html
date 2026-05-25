@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>الكرات المختارة - نحلة تنسج خيوط الربط</title>
+<style>
+  :root{
+    --panel: rgba(10,14,22,.78);
+    --line: rgba(255,255,255,.18);
+    --text:#eef6ff;
+    --muted:#bdd0e8;
+  }
+  *{box-sizing:border-box}
+  html,body{
+    width:100%;height:100%;margin:0;overflow:hidden;
+    background:radial-gradient(circle at 50% 45%, #111827 0%, #050812 68%, #000 100%);
+    color:var(--text);font-family:Tahoma,Arial,sans-serif
+  }
+  canvas{display:block;width:100vw;height:100vh;cursor:grab}
+  canvas:active{cursor:grabbing}
+  #panel{
+    position:absolute;top:12px;right:12px;width:395px;max-width:calc(100vw - 24px);
+    background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px;
+    backdrop-filter:blur(8px);box-shadow:0 14px 42px rgba(0,0,0,.45);z-index:10
+  }
+  h2{font-size:20px;margin:0 0 6px;color:#e4f1ff}
+  p{font-size:13px;line-height:1.55;color:var(--muted);margin:0 0 12px}
+  .grid{display:grid;grid-template-columns:1fr 84px;gap:8px;align-items:center;margin:9px 0}
+  label{font-size:13px;color:#ecf5ff}
+  .val{direction:ltr;text-align:left;color:#8bdcff;font-size:12px}
+  input,select,button{
+    width:100%;border-radius:9px;border:1px solid rgba(255,255,255,.2);
+    background:rgba(255,255,255,.08);color:#fff;padding:8px;font-size:14px
+  }
+  select option{background:#111827;color:#fff}
+  input[type="range"]{padding:0}
+  input[type="checkbox"]{width:auto;transform:scale(1.15);margin-left:6px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:9px 0}
+  button{
+    cursor:pointer;background:linear-gradient(180deg,rgba(128,190,255,.36),rgba(126,82,255,.25));
+    transition:.15s transform,.15s background
+  }
+  button:hover{transform:translateY(-1px);background:linear-gradient(180deg,rgba(128,190,255,.5),rgba(126,82,255,.36))}
+  #stats,.note{font-size:12px;line-height:1.5;color:#bcd0e8;margin-top:8px}
+  .note{background:rgba(255,255,255,.06);border-radius:10px;padding:10px}
+  .badge{color:#9ee8ff}
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+
+<div id="panel">
+  <h2>النحلة تنطلق من المركز وتوصل الكرات</h2>
+  <p>
+    الآن تبدأ النحلة من <b>المركز (الرقم 1)</b> ثم تزور الكرات المختارة <b>بالتسلسل</b>،
+    وتترك وراءها <b>خيطًا</b> يربطها واحدة بعد الأخرى.
+  </p>
+
+  <div class="grid"><label>عدد الطبقات حول المركز</label><div class="val" id="shellsV"></div></div>
+  <input id="shells" type="range" min="1" max="5" step="1" value="3">
+
+  <div class="grid"><label>شفافية غير المطابق</label><div class="val" id="alphaV"></div></div>
+  <input id="alpha" type="range" min="0.03" max="0.55" step="0.01" value="0.10">
+
+  <div class="grid"><label>قاعدة التلوين</label><div></div></div>
+  <select id="rule">
+    <option value="div">الأعداد القابلة للقسمة على</option>
+    <option value="prime">الأعداد الأولية</option>
+    <option value="tens">مضاعفات 10</option>
+    <option value="squares">الأعداد المربعة</option>
+    <option value="none">بدون تلوين خاص</option>
+  </select>
+
+  <div class="two">
+    <div>
+      <label style="display:block;margin-bottom:6px">المقسوم عليه</label>
+      <input id="divisor" type="number" min="2" max="99" value="7">
+    </div>
+    <div>
+      <label style="display:block;margin-bottom:6px">حجم الكرة</label>
+      <input id="cell" type="number" min="0.45" max="1.7" step="0.05" value="1">
+    </div>
+  </div>
+
+  <div class="two">
+    <label><input id="hide" type="checkbox"> إخفاء غير المطابق</label>
+    <label><input id="labels" type="checkbox"> إظهار الأرقام</label>
+  </div>
+
+  <div class="two">
+    <label><input id="showThread" type="checkbox" checked> إظهار الخيط</label>
+    <label><input id="showThreadDots" type="checkbox" checked> نقاط العقد</label>
+  </div>
+
+  <div class="two">
+    <div>
+      <label style="display:block;margin-bottom:6px">سرعة النحلة</label>
+      <input id="beeSpeed" type="range" min="0.25" max="4" step="0.05" value="1.25">
+    </div>
+    <div>
+      <label style="display:block;margin-bottom:6px">حجم النحلة</label>
+      <input id="beeSize" type="range" min="0.45" max="2.2" step="0.05" value="1">
+    </div>
+  </div>
+
+  <div class="grid"><label>نمو تدريجي</label><div class="val" id="growthV"></div></div>
+  <input id="growth" type="range" min="1" max="343" step="1" value="343">
+
+  <div class="two">
+    <button id="play">تشغيل النمو</button>
+    <button id="reset">إعادة الكاميرا</button>
+  </div>
+
+  <div id="stats"></div>
+  <div class="note">
+    فكرة العمل: المسار يبدأ من المركز ثم يمر على الأعداد المطابقة حسب القاعدة المختارة. الخيط لا يظهر دفعة واحدة،
+    بل تتركه النحلة أثناء الطيران.
+  </div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('view');
+  const ctx = canvas.getContext('2d', {alpha:true});
+  const ui = {
+    shells: document.getElementById('shells'), shellsV: document.getElementById('shellsV'),
+    alpha: document.getElementById('alpha'), alphaV: document.getElementById('alphaV'),
+    rule: document.getElementById('rule'), divisor: document.getElementById('divisor'),
+    cell: document.getElementById('cell'), hide: document.getElementById('hide'), labels: document.getElementById('labels'),
+    showThread: document.getElementById('showThread'), showThreadDots: document.getElementById('showThreadDots'),
+    beeSpeed: document.getElementById('beeSpeed'), beeSize: document.getElementById('beeSize'),
+    growth: document.getElementById('growth'), growthV: document.getElementById('growthV'),
+    stats: document.getElementById('stats'), play: document.getElementById('play'), reset: document.getElementById('reset')
+  };
+
+  let W=0,H=0,dpr=1;
+  let yaw=-0.72, pitch=-0.55, zoom=1.0;
+  let dragging=false, lastX=0, lastY=0;
+  let cells=[]; let playing=false; let playTimer=0;
+
+  function resize(){
+    dpr=Math.min(devicePixelRatio||1,2); W=innerWidth; H=innerHeight;
+    canvas.width=Math.floor(W*dpr); canvas.height=Math.floor(H*dpr);
+    canvas.style.width=W+'px'; canvas.style.height=H+'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+
+  function isPrime(n){
+    if(n<2) return false; if(n===2) return true; if(n%2===0) return false;
+    const r=Math.floor(Math.sqrt(n));
+    for(let i=3;i<=r;i+=2) if(n%i===0) return false;
+    return true;
+  }
+  function isSquare(n){ const r=Math.floor(Math.sqrt(n)); return r*r===n; }
+  function match(n){
+    const rule=ui.rule.value; const d=Math.max(2, parseInt(ui.divisor.value||'7',10));
+    if(rule==='div') return n%d===0;
+    if(rule==='prime') return isPrime(n);
+    if(rule==='tens') return n%10===0;
+    if(rule==='squares') return isSquare(n);
+    return false;
+  }
+
+  function build(){
+    const shells=parseInt(ui.shells.value,10); const list=[]; let n=1;
+    for(let r=0;r<=shells;r++){
+      for(let z=-r;z<=r;z++) for(let y=-r;y<=r;y++) for(let x=-r;x<=r;x++){
+        if(Math.max(Math.abs(x),Math.abs(y),Math.abs(z))!==r) continue;
+        list.push({x,y,z,n:n++, shell:r});
+      }
+    }
+    cells=list; ui.growth.max=String(cells.length); ui.growth.value=String(cells.length); updateLabels();
+  }
+
+  function updateLabels(){
+    const shells=parseInt(ui.shells.value,10); const side=shells*2+1; const shown=parseInt(ui.growth.value,10);
+    const matchedTotal=cells.reduce((a,c)=>a+(match(c.n)?1:0),0);
+    ui.shellsV.textContent=`${shells}  |  ${side}×${side}×${side}`;
+    ui.alphaV.textContent=Number(ui.alpha.value).toFixed(2);
+    ui.growthV.textContent=`${shown} / ${cells.length}`;
+    const ruleName=ui.rule.options[ui.rule.selectedIndex].textContent;
+    ui.stats.innerHTML=`الخلايا الكلية: <b>${cells.length}</b> | المطابقة: <b>${matchedTotal}</b> | القاعدة: <b>${ruleName}${ui.rule.value==='div'?' '+Math.max(2,parseInt(ui.divisor.value||'7',10)):''}</b>`;
+  }
+
+  function rotate(p){
+    const cy=Math.cos(yaw), sy=Math.sin(yaw), cp=Math.cos(pitch), sp=Math.sin(pitch);
+    let x=p.x, y=p.y, z=p.z;
+    let x1=x*cy-z*sy, z1=x*sy+z*cy, y1=y;
+    let y2=y1*cp-z1*sp, z2=y1*sp+z1*cp;
+    return {x:x1,y:y2,z:z2};
+  }
+
+  function project(p, scaleBase){
+    const dist=23; const f=dist/(dist+p.z);
+    return {x:W/2 + p.x*scaleBase*f, y:H/2 - p.y*scaleBase*f, f};
+  }
+
+  function worldCenter(item, sphereWorldSize){
+    const gap = sphereWorldSize * 1.95;
+    return {x:item.x*gap, y:item.y*gap, z:item.z*gap, n:item.n};
+  }
+
+  function centerProjected(item, scaleBase, sphereWorldSize){
+    const wc = worldCenter(item, sphereWorldSize);
+    const cr=rotate(wc);
+    const cp=project(cr, scaleBase);
+    return {x:cp.x, y:cp.y, z:cr.z, f:cp.f, n:item.n, wx:wc.x, wy:wc.y, wz:wc.z};
+  }
+
+  function projectWorld(w, scaleBase){
+    const cr = rotate(w);
+    const cp = project(cr, scaleBase);
+    return {x:cp.x, y:cp.y, z:cr.z, f:cp.f};
+  }
+
+  function gradientColorByIndex(i, total){
+    if(total <= 1) return {h:285, s:88, l:60};
+    const t = i/(total-1);
+    const h = 190 + t * 160;
+    return {h, s:88, l:60};
+  }
+  function hslStr(h,s,l,a=1){ return `hsla(${h}, ${s}%, ${l}%, ${a})`; }
+
+  function drawSphere(point, radius, hit, alpha, label, gradientInfo, isCenter){
+    const fillA = hit ? 0.98 : alpha;
+    const baseH = gradientInfo ? gradientInfo.h : (isCenter ? 190 : 205);
+    const baseS = gradientInfo ? gradientInfo.s : (isCenter ? 90 : 75);
+    const baseL = gradientInfo ? gradientInfo.l : (isCenter ? 58 : 78);
+
+    ctx.save();
+    if(hit || isCenter){
+      const glowR = radius * 2.35;
+      const glow = ctx.createRadialGradient(point.x, point.y, 0, point.x, point.y, glowR);
+      glow.addColorStop(0, hslStr(baseH, baseS, 74, hit ? 0.26 : 0.22));
+      glow.addColorStop(1, hslStr(baseH, baseS, 50, 0));
+      ctx.fillStyle = glow;
+      ctx.beginPath(); ctx.arc(point.x, point.y, glowR, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+
+    const gx = point.x - radius*0.38;
+    const gy = point.y - radius*0.42;
+    const grad = ctx.createRadialGradient(gx, gy, radius*0.08, point.x, point.y, radius);
+    grad.addColorStop(0, hslStr(baseH, baseS, 88, fillA));
+    grad.addColorStop(0.23, hslStr(baseH, baseS, 74, fillA));
+    grad.addColorStop(0.63, hslStr(baseH, baseS, baseL, fillA));
+    grad.addColorStop(1, hslStr(baseH, Math.max(50, baseS-10), Math.max(22, baseL-30), fillA));
+
+    ctx.save();
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(point.x, point.y, radius, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = hit ? 'rgba(255,255,255,.55)' : 'rgba(255,255,255,.18)';
+    ctx.lineWidth = hit ? 1.3 : 0.8; ctx.stroke();
+    ctx.beginPath();
+    ctx.fillStyle = 'rgba(255,255,255,.38)';
+    ctx.ellipse(point.x - radius*0.28, point.y - radius*0.28, radius*0.26, radius*0.18, -0.55, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+
+    if(ui.labels.checked){
+      const fontSize = Math.max(8, Math.min(16, radius*0.78));
+      if(fontSize >= 8){
+        ctx.save();
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `bold ${fontSize}px Tahoma, Arial, sans-serif`;
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.globalAlpha = hit || isCenter ? 1 : Math.min(0.92, alpha*4);
+        ctx.fillText(String(label), point.x, point.y + radius*0.02);
+        ctx.restore();
+      }
+    }
+  }
+
+  function buildBeePath(matchedRaw, sphereWorldSize){
+    const centerCell = cells.find(c => c.n === 1) || {x:0,y:0,z:0,n:1};
+    const path = [worldCenter(centerCell, sphereWorldSize)];
+    for(const c of matchedRaw){
+      if(c.n === 1) continue;
+      path.push(worldCenter(c, sphereWorldSize));
+    }
+    return path;
+  }
+
+  function interpolateWorld(a, b, t){
+    const x = a.x + (b.x-a.x)*t;
+    const y = a.y + (b.y-a.y)*t + Math.sin(t*Math.PI)*0.22;
+    const z = a.z + (b.z-a.z)*t;
+    return {x,y,z};
+  }
+
+  function getBeeProgressPath(path, time){
+    if(path.length < 2) return null;
+    const speed = parseFloat(ui.beeSpeed.value || '1.25');
+    const segFloat = (time * 0.00042 * speed) % (path.length - 1 + 1e-9);
+    const seg = Math.floor(segFloat);
+    const t = segFloat - seg;
+    const currentSeg = Math.min(seg, path.length - 2);
+    const pos = interpolateWorld(path[currentSeg], path[currentSeg + 1], t);
+    return { currentSeg, t, pos };
+  }
+
+  function drawThread(path, gradientColors, scaleBase, progress){
+    if(!ui.showThread.checked || path.length < 2 || !progress) return;
+
+    const projected = path.map(p => projectWorld(p, scaleBase));
+    const currentProjected = projectWorld(progress.pos, scaleBase);
+
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // glow under-thread
+    ctx.beginPath();
+    ctx.moveTo(projected[0].x, projected[0].y);
+    for(let i=1;i<=progress.currentSeg;i++) ctx.lineTo(projected[i].x, projected[i].y);
+    ctx.lineTo(currentProjected.x, currentProjected.y);
+    ctx.strokeStyle = 'rgba(255,235,170,0.18)';
+    ctx.lineWidth = 8;
+    ctx.stroke();
+
+    // colored thread per segment
+    for(let i=0;i<progress.currentSeg;i++){
+      const a = projected[i], b = projected[i+1];
+      const c1 = gradientColors[Math.max(0, i-1)] || {h:48,s:92,l:62};
+      const c2 = gradientColors[Math.min(gradientColors.length-1, i)] || c1;
+      const lg = ctx.createLinearGradient(a.x,a.y,b.x,b.y);
+      lg.addColorStop(0, hslStr(c1.h, c1.s, c1.l, 0.92));
+      lg.addColorStop(1, hslStr(c2.h, c2.s, c2.l, 0.92));
+      ctx.strokeStyle = lg;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+    }
+
+    // current in-progress segment from last reached node to bee position
+    const from = projected[progress.currentSeg];
+    const c1 = gradientColors[Math.max(0, progress.currentSeg-1)] || {h:48,s:92,l:62};
+    const c2 = gradientColors[Math.min(gradientColors.length-1, progress.currentSeg)] || c1;
+    const lg = ctx.createLinearGradient(from.x,from.y,currentProjected.x,currentProjected.y);
+    lg.addColorStop(0, hslStr(c1.h, c1.s, c1.l, 0.96));
+    lg.addColorStop(1, hslStr(c2.h, c2.s, c2.l, 0.96));
+    ctx.strokeStyle = lg;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(from.x,from.y); ctx.lineTo(currentProjected.x,currentProjected.y); ctx.stroke();
+
+    if(ui.showThreadDots.checked){
+      const totalDone = progress.currentSeg + 1; // include start center
+      for(let i=0;i<totalDone;i++){
+        const p = projected[i];
+        const gc = gradientColors[Math.max(0, i-1)] || {h:48,s:92,l:62};
+        const rg = ctx.createRadialGradient(p.x-1.5,p.y-1.5,0,p.x,p.y,5);
+        rg.addColorStop(0,'rgba(255,255,255,.98)');
+        rg.addColorStop(1,hslStr(gc.h,gc.s,gc.l,0.86));
+        ctx.fillStyle = rg;
+        ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawBee(progress, scaleBase, time){
+    if(!progress) return;
+    const sizeMul = parseFloat(ui.beeSize.value || '1');
+    const p = projectWorld(progress.pos, scaleBase);
+    const prevT = Math.max(0, progress.t - 0.02);
+    const prevPos = interpolateWorld(beePath[progress.currentSeg], beePath[progress.currentSeg + 1], prevT);
+    const q = projectWorld(prevPos, scaleBase);
+    const angle = Math.atan2(p.y - q.y, p.x - q.x);
+    const s = Math.max(8, Math.min(34, scaleBase * 0.13 * p.f * sizeMul));
+
+    // trailing sparkle
+    ctx.save();
+    ctx.lineCap = 'round';
+    for(let k=1;k<=7;k++){
+      const tt = Math.max(0, progress.t - k*0.02);
+      const wp = interpolateWorld(beePath[progress.currentSeg], beePath[progress.currentSeg + 1], tt);
+      const pp = projectWorld(wp, scaleBase);
+      ctx.globalAlpha = (8-k)/46;
+      ctx.strokeStyle = '#ffe66d';
+      ctx.lineWidth = s * (0.35 - k*0.025);
+      ctx.beginPath(); ctx.moveTo(pp.x,pp.y); ctx.lineTo(p.x,p.y); ctx.stroke();
+    }
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(angle);
+
+    const wingBeat = Math.sin(time*0.045) * 0.28;
+
+    // wings
+    ctx.save();
+    ctx.globalAlpha = 0.55;
+    ctx.fillStyle = 'rgba(210,245,255,.72)';
+    ctx.strokeStyle = 'rgba(255,255,255,.75)';
+    ctx.lineWidth = Math.max(1, s*0.06);
+    ctx.beginPath();
+    ctx.ellipse(-s*0.14, -s*0.62, s*0.5, s*0.23, -0.55+wingBeat, 0, Math.PI*2);
+    ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(-s*0.14, s*0.62, s*0.5, s*0.23, 0.55-wingBeat, 0, Math.PI*2);
+    ctx.fill(); ctx.stroke();
+    ctx.restore();
+
+    // glow
+    const glow = ctx.createRadialGradient(0,0,0,0,0,s*1.65);
+    glow.addColorStop(0,'rgba(255,210,82,.32)');
+    glow.addColorStop(1,'rgba(255,210,82,0)');
+    ctx.fillStyle=glow; ctx.beginPath(); ctx.arc(0,0,s*1.65,0,Math.PI*2); ctx.fill();
+
+    // body
+    const body = ctx.createLinearGradient(-s,0,s,0);
+    body.addColorStop(0,'#ffd93a');
+    body.addColorStop(0.45,'#ffb300');
+    body.addColorStop(1,'#7b4500');
+    ctx.fillStyle = body;
+    ctx.strokeStyle = 'rgba(255,255,255,.45)';
+    ctx.lineWidth = Math.max(1, s*0.08);
+    ctx.beginPath(); ctx.ellipse(0,0,s*0.92,s*0.48,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+
+    // stripes
+    ctx.strokeStyle = 'rgba(23,16,0,.85)';
+    ctx.lineWidth = Math.max(1.5, s*0.12);
+    for(const xx of [-0.34, 0.02, 0.38]){
+      ctx.beginPath();
+      ctx.moveTo(s*xx, -s*0.38);
+      ctx.quadraticCurveTo(s*(xx+0.08), 0, s*xx, s*0.38);
+      ctx.stroke();
+    }
+
+    // head
+    ctx.fillStyle = '#211509';
+    ctx.beginPath(); ctx.arc(s*0.78,0,s*0.32,0,Math.PI*2); ctx.fill();
+
+    // antennae
+    ctx.strokeStyle='rgba(255,230,130,.9)';
+    ctx.lineWidth=Math.max(1,s*0.055);
+    ctx.beginPath(); ctx.moveTo(s*0.98,-s*0.1); ctx.quadraticCurveTo(s*1.25,-s*0.45,s*1.45,-s*0.32); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(s*0.98,s*0.1); ctx.quadraticCurveTo(s*1.25,s*0.45,s*1.45,s*0.32); ctx.stroke();
+    ctx.restore();
+  }
+
+  let beePath = [];
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    ctx.save();
+    ctx.globalAlpha=0.12; ctx.strokeStyle='#24405f'; ctx.lineWidth=1;
+    for(let i=0;i<16;i++){ const y=H*(i/16); ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+    ctx.restore();
+
+    const shells=parseInt(ui.shells.value,10), side=shells*2+1;
+    const sphereWorldSize=Math.max(0.45, parseFloat(ui.cell.value||'1'));
+    const scaleBase=Math.min(W,H)/(side*3.0)*zoom;
+    const alpha=parseFloat(ui.alpha.value||'0.10');
+    const count=Math.min(parseInt(ui.growth.value,10), cells.length);
+    const shownCells=cells.slice(0,count);
+
+    const matchedRaw=shownCells.filter(c=>match(c.n)).sort((a,b)=>a.n-b.n);
+    const matchedColors=matchedRaw.map((_,i)=>gradientColorByIndex(i, matchedRaw.length));
+    beePath = buildBeePath(matchedRaw, sphereWorldSize);
+    const beeProgress = getBeeProgressPath(beePath, performance.now());
+
+    drawThread(beePath, matchedColors, scaleBase, beeProgress);
+
+    const visible=shownCells.map(c=>{
+      const p = centerProjected(c, scaleBase, sphereWorldSize);
+      return {c, p};
+    }).sort((a,b)=>a.p.z-b.p.z);
+
+    const gradientMap = new Map();
+    matchedRaw.forEach((c,i)=> gradientMap.set(c.n, matchedColors[i]));
+
+    for(const item of visible){
+      const hit = match(item.c.n);
+      if(ui.hide.checked && !hit) continue;
+      const radius = Math.max(3, scaleBase * sphereWorldSize * 0.33 * item.p.f);
+      const grad = gradientMap.get(item.c.n) || null;
+      drawSphere(item.p, radius, hit, alpha, item.c.n, grad, item.c.n===1);
+    }
+
+    drawBee(beeProgress, scaleBase, performance.now());
+    requestAnimationFrame(draw);
+  }
+
+  function resetCamera(){ yaw=-0.72; pitch=-0.55; zoom=1.0; }
+
+  canvas.addEventListener('pointerdown', e=>{ dragging=true; lastX=e.clientX; lastY=e.clientY; canvas.setPointerCapture(e.pointerId); });
+  canvas.addEventListener('pointermove', e=>{
+    if(!dragging) return;
+    const dx=e.clientX-lastX, dy=e.clientY-lastY;
+    lastX=e.clientX; lastY=e.clientY;
+    yaw += dx*0.008; pitch += dy*0.008;
+    pitch=Math.max(-1.45, Math.min(1.45,pitch));
+  });
+  canvas.addEventListener('pointerup', e=>{ dragging=false; try{canvas.releasePointerCapture(e.pointerId);}catch(err){} });
+  canvas.addEventListener('wheel', e=>{
+    e.preventDefault(); zoom*=Math.exp(-e.deltaY*0.001);
+    zoom=Math.max(0.35, Math.min(5.0, zoom));
+  }, {passive:false});
+
+  ui.shells.addEventListener('input', build);
+  [ui.alpha,ui.rule,ui.divisor,ui.cell,ui.hide,ui.labels,ui.showThread,ui.showThreadDots,ui.beeSpeed,ui.beeSize,ui.growth].forEach(el=>{
+    el.addEventListener('input', updateLabels);
+    el.addEventListener('change', updateLabels);
+  });
+  ui.reset.addEventListener('click', resetCamera);
+  ui.play.addEventListener('click', ()=>{
+    playing=!playing;
+    ui.play.textContent=playing?'إيقاف النمو':'تشغيل النمو';
+    if(playing){ ui.growth.value='1'; playTimer=performance.now(); }
+  });
+
+  function animateGrowth(t){
+    if(playing){
+      const max=cells.length, speed=Math.max(2, Math.floor(max/160));
+      if(t-playTimer>28){
+        const v=Math.min(max, parseInt(ui.growth.value,10)+speed);
+        ui.growth.value=String(v); updateLabels(); playTimer=t;
+        if(v>=max){ playing=false; ui.play.textContent='تشغيل النمو'; }
+      }
+    }
+    requestAnimationFrame(animateGrowth);
+  }
+
+  resize(); build(); resetCamera(); draw(); animateGrowth(performance.now());
+  addEventListener('resize', resize);
+})();
+</script>
+</body>
+</html>
